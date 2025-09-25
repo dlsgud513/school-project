@@ -3,18 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Counter</title>
+    <title>Document</title>
 </head>
 <body>
 
     <h1 id="count-text">count : 0</h1>
     <button id="btn-inc">Inc(+)</button>
     <button id="btn-dec">Dec(-)</button>
+    <button id="btn-reset">Reset(0)</button>
 
     <script>
         var countText = document.getElementById("count-text");
         var btnInc = document.getElementById("btn-inc");
         var btnDec = document.getElementById("btn-dec");
+        var btnReset = document.getElementById("btn-reset");
         var count = 0;
 
         btnInc.addEventListener("click", ()=>{
@@ -25,6 +27,12 @@
 
         btnDec.addEventListener("click", ()=>{
             count = count - 1;
+            console.log(count);
+            countText.innerText = "count : " + count;
+        });
+
+        btnReset.addEventListener("click", ()=>{
+            count = 0;
             console.log(count);
             countText.innerText = "count : " + count;
         });
