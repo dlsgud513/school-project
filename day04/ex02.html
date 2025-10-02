@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <h1>check box</h1>
+    <div>
+    <input type="checkbox" id="check-agree"/><label for=""check-agree"">동의</label>
+    </div>
+
+    <div>
+        <input type="checkbox" name="group-1"/><label>사과</label>
+        <input type="checkbox" name="group-1"/><label>바나나</label>
+    </div>
+    <p>결과 : <span id="txt-resault"></span> </p>
+    <button id ="btn-submit"> 제출 </button>
+
+    <script>
+        var btnSubmit = document.getElementById("btn-submit");
+        var checkedAgree = document.getElementById("check-agree");
+        
+        btnSubmit.addEventListener("click", function(){
+            console.log(checkedAgree.checked);
+        });
+    </script>
+
+</body>
+</html>
