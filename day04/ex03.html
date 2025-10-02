@@ -6,7 +6,49 @@
     <title>selector example</title>
 </head>
 <body>
-    <h1>Selector Example</h1>
-    
+    <h1>기차표 예약</h1>
+
+    <h2>출발역</h2>
+    <div>
+        <div><input type="radio" name="group-1" value="서울"/>서울</div>
+        <div><input type="radio" name="group-1" value="천안"/>천안</div>
+        <div><input type="radio" name="group-1" value="세종"/>세종</div>
+        <div><input type="radio" name="group-1" value="익산"/>익산</div>
+    </div>
+
+    <h2>도착역</h2>
+    <div>
+        <select id="select-city">
+            <option>광주</option>
+            <option>목포</option>
+            <option>여수</option>
+        </select>
+    </div>
+    <div>
+        <button id="btn-submit">선택</button>
+    </div>
+
+    <p id="txt-result1">출발역은 : </p>
+    <p id="txt-result2">도착역은 : </p> <script>
+
+        var selectCity = document.getElementById("select-city");
+        var btnSubmit = document.getElementById("btn-submit");
+        var txtResult1 = document.getElementById("txt-result1"); 
+        var txtResult2 = document.getElementById("txt-result2"); 
+
+        btnSubmit.addEventListener("click", function(){
+            var selectedRadio = document.querySelector('input[name="group-1"]:checked');
+            
+            if (selectedRadio) {
+                txtResult1.innerText = "출발역은 : " + selectedRadio.value;
+            } else {
+                txtResult1.innerText = "출발역은 : 선택되지 않았습니다.";
+            }
+            
+            txtResult2.innerText = "도착역은 : " + selectCity.value;
+            console.log("출발역 : "+selectCity.value);
+            console.log("도착역 : "+selectedRadio.value);
+        });
+    </script>
 </body>
 </html>
