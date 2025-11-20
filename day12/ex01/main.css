@@ -49,3 +49,6 @@ footer{
 .menu-item.select{
     background-color: darkorange;
 }
+.hide{
+    display: none;
+}

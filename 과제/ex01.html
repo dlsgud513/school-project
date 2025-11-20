@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3분 버티기 (Hard)</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+            font-family: sans-serif;
+            flex-direction: column;
+        }
+        #timer-display {
+            font-size: 2.5em;
+            font-family: 'Courier New', Courier, monospace; 
+            color: #333;
+            margin: 10px;
+        }
+        #game-wrapper {
+            width: 250px; 
+            height: 250px; 
+            overflow: hidden; 
+            border: 2px solid black;
+            position: relative;
+        }
+        #grid-container {
+            display: grid;
+            grid-template-columns: repeat(7, 50px);
+            grid-template-rows: repeat(7, 50px);
+            background-color: #fff;
+            background-image: 
+                linear-gradient(to right, #eee 1px, transparent 1px),
+                linear-gradient(to bottom, #eee 1px, transparent 1px);
+            background-size: 50px 50px;
+            position: relative;
+            left: -50px; 
+            top: -50px;
+        }
+        #player {
+            width: 40px;
+            height: 40px;
+            background-color: dodgerblue;
+            border-radius: 50%;
+            margin: 5px;
+            transition: all 0.1s linear;
+            z-index: 10;
+        }
+        .obstacle {
+            width: 40px;
+            height: 40px;
+            background-color: #555;
+            margin: 5px;
+            transition: all 0.05s linear; 
+            z-index: 5;
+            border-radius: 50%; 
+            box-shadow: 0 0 0 3px #333 inset;
+            border: 3px solid #888;
+            animation: spin 1s linear infinite; 
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        #obstacle-container {
+            display: grid;
+            grid-template-columns: repeat(7, 50px);
+            grid-template-rows: repeat(7, 50px);
+            position: absolute;
+            left: 0;
+            top: 0;
+            z-index: 5; 
+        }
+        #restart-button {
+            display: none;
+            font-size: 1.5em;
+            font-weight: bold;
+            padding: 10px 20px;
+            margin-top: 20px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        #restart-button.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+    <p>키보드 방향키 (↑, ↓, ←, →)로 3분간 피하세요!</p>
+    <h1 id="timer-display">03:00.00</h1>
+    <div id="game-wrapper">
+        <div id="grid-container">
+            <div id="player"></div>
+            <div id="obstacle-container"></div>
+        </div>
+    </div>
+    <button id="restart-button">다시 시작</button>
+
+    <script>
+        // --- HTML 요소 ---
+        const player = document.getElementById('player');
+        const timerDisplay = document.getElementById('timer-display');
+        const restartButton = document.getElementById('restart-button');
+        const obstacleContainer = document.getElementById('obstacle-container');
+
+        // --- 게임 설정 ---
+        const GAME_DURATION = 3 * 60 * 1000;
+        const OBSTACLE_MOVE_SPEED = 200; 
+        const OBSTACLE_SPAWN_SPEED = 1500; // 1.5초마다 (이 속도는 유지)
+
+        // --- 게임 상태 변수 ---
+        let playerX, playerY;
+        let startTime;
+        let gameRunning;
+        let timerInterval;
+        let obstacles = []; 
+        let obstacleMoveInterval; 
+        let obstacleSpawnInterval; 
+        
+        // === 추가: 현재 난이도 변수 ===
+        let currentDifficultyLevel; 
+
+        // === 게임 시작 (초기화) 함수 ===
+        function startGame() {
+            // 1. 변수 초기화
+            playerX = 4;
+            playerY = 4;
+            startTime = Date.now();
+            gameRunning = true;
+            obstacles = [];
+            
+            // === 추가: 난이도 1로 초기화 ===
+            currentDifficultyLevel = 1; 
+
+            // 2. 시각적 요소 초기화
+            player.style.gridColumn = playerX;
+            player.style.gridRow = playerY;
+            timerDisplay.textContent = formatTime(GAME_DURATION);
+            restartButton.classList.remove('show');
+            obstacleContainer.innerHTML = ''; 
+
+            // 3. 기존 인터벌 제거
+            clearInterval(timerInterval);
+            clearInterval(obstacleMoveInterval);
+            clearInterval(obstacleSpawnInterval);
+
+            // 4. 새 인터벌 시작
+            timerInterval = setInterval(updateTimer, 10);
+            obstacleMoveInterval = setInterval(moveAllObstacles, OBSTACLE_MOVE_SPEED);
+            obstacleSpawnInterval = setInterval(spawnObstacle, OBSTACLE_SPAWN_SPEED);
+        }
+
+        // === 게임 정지 함수 ===
+        function stopGame() {
+            gameRunning = false;
+            clearInterval(timerInterval);
+            clearInterval(obstacleMoveInterval);
+            clearInterval(obstacleSpawnInterval);
+            restartButton.classList.add('show');
+
+            for (const ob of obstacles) {
+                ob.element.style.animationPlayState = 'paused'; 
+            }
+        }
+
+        // === 수정: 장애물 생성 함수 ===
+        function spawnObstacle() {
+            if (!gameRunning) return;
+
+            // === 수정: 현재 난이도 레벨만큼 반복 생성 ===
+            for (let i = 0; i < currentDifficultyLevel; i++) {
+                let x, y, dirX, dirY;
+                const side = Math.floor(Math.random() * 4);
+                const randomPos = Math.floor(Math.random() * 5) + 2;
+
+                switch (side) {
+                    case 0: // 상
+                        x = randomPos; y = 1; dirX = 0; dirY = 1;
+                        break;
+                    case 1: // 하
+                        x = randomPos; y = 7; dirX = 0; dirY = -1;
+                        break;
+                    case 2: // 좌
+                        x = 1; y = randomPos; dirX = 1; dirY = 0;
+                        break;
+                    case 3: // 우
+                        x = 7; y = randomPos; dirX = -1; dirY = 0;
+                        break;
+                }
+
+                const newElement = document.createElement('div');
+                newElement.className = 'obstacle'; 
+                newElement.style.gridColumn = x;
+                newElement.style.gridRow = y;
+
+                obstacleContainer.appendChild(newElement);
+                obstacles.push({ x: x, y: y, dirX: dirX, dirY: dirY, element: newElement });
+            }
+        }
+        // === 수정 끝 ===
+
+        // === 장애물 이동 함수 ===
+        function moveAllObstacles() {
+            if (!gameRunning) return;
+
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const ob = obstacles[i];
+
+                ob.x += ob.dirX;
+                ob.y += ob.dirY;
+
+                if (ob.x > 7 || ob.x < 1 || ob.y > 7 || ob.y < 1) {
+                    ob.element.remove(); 
+                    obstacles.splice(i, 1); 
+                } 
+                else {
+                    ob.element.style.gridColumn = ob.x;
+                    ob.element.style.gridRow = ob.y;
+
+                    if (playerX === ob.x && playerY === ob.y) {
+                        stopGame();
+                        alert("게임 오버!");
+                        break; 
+                    }
+                }
+            }
+        }
+
+        // === 플레이어 충돌 감지 ===
+        function checkPlayerCollision() {
+            if (!gameRunning) return;
+            for (const ob of obstacles) {
+                if (playerX === ob.x && playerY === ob.y) {
+                    stopGame();
+                    alert("게임 오버!");
+                    break;
+                }
+            }
+        }
+
+        // --- 시간 포맷 ---
+        function formatTime(ms) {
+            if (ms < 0) ms = 0;
+            let totalSeconds = Math.floor(ms / 1000);
+            let minutes = Math.floor(totalSeconds / 60);
+            let seconds = totalSeconds % 60;
+            let hundredths = Math.floor((ms % 1000) / 10);
+            let minStr = String(minutes).padStart(2, '0');
+            let secStr = String(seconds).padStart(2, '0');
+            let msStr = String(hundredths).padStart(2, '0');
+            return `${minStr}:${secStr}.${msStr}`;
+        }
+
+        // === 수정: 타이머 업데이트 함수 ===
+        function updateTimer() {
+            if (!gameRunning) return;
+            let elapsedTime = Date.now() - startTime;
+            let remainingTime = GAME_DURATION - elapsedTime;
+
+            timerDisplay.textContent = formatTime(remainingTime);
+
+            // === 추가: 난이도 조절 로직 ===
+            // 2분(120,000ms) 남았고, 현재 레벨 1이면 -> 레벨 2로
+            if (remainingTime <= 120000 && currentDifficultyLevel === 1) {
+                currentDifficultyLevel = 2;
+                // (콘솔에서 확인)
+                console.log("난이도 상승! LV.2"); 
+            } 
+            // 1분(60,000ms) 남았고, 현재 레벨 2이면 -> 레벨 3으로
+            else if (remainingTime <= 60000 && currentDifficultyLevel === 2) {
+                currentDifficultyLevel = 3;
+                // (콘솔에서 확인)
+                console.log("난이도 상승! LV.3");
+            }
+            // === 추가 끝 ===
+
+            if (remainingTime <= 0) {
+                stopGame();
+                alert("클리어! 3분을 버텼습니다!");
+            }
+        }
+        // === 수정 끝 ===
+
+        // --- 플레이어 이동 (이벤트 리스너) ---
+        document.addEventListener('keydown', (event) => {
+            if (!gameRunning) return; 
+            event.preventDefault();
+
+            switch (event.key) {
+                case 'ArrowUp':
+                    if (playerY > 2) playerY--;
+                    break;
+                case 'ArrowDown':
+                    if (playerY < 6) playerY++;
+                    break;
+                case 'ArrowLeft':
+                    if (playerX > 2) playerX--;
+                    break;
+                case 'ArrowRight':
+                    if (playerX < 6) playerX++;
+                    break;
+            }
+
+            player.style.gridColumn = playerX;
+            player.style.gridRow = playerY;
+
+            checkPlayerCollision();
+        });
+
+        // '다시 시작' 버튼 클릭
+        restartButton.addEventListener('click', startGame);
+
+        // 최초 게임 시작
+        startGame();
+
+    </script>
+</body>
+</html>

@@ -11,13 +11,22 @@
 <body>
 
     <header>version 1.0</header>
-    <main>
+    <main id="main-menu-screen">
         <div class="title-txt">Dungeon & Dragons</div>
-        <div class="menu-item select">New</div>
-        <div class="menu-item">Load</div>
-        <div class="menu-item">Option</div>
-        <div class="menu-item">About</div>
+        <div class="menu-item" date-action="new-game">New</div>
+        <div class="menu-item" data-action="lode-game">Load</div>
+        <div class="menu-item" data-action="option">Option</div>
+        <div class="menu-item" data-action="credit">Credit</div>
+        <div class="menu-item" data-action="about">About</div>
     </main>
+
+    <main id="credit-screen" class="hide">
+        <div class="credit-title">Credits</div>
+        <div class="credit-item">Game Design: gbox3d</div>
+        <div class="credit-item">Game progremmer: gbox3d</div>
+        <div class="credit-item">Game Art: gbox3d</div>
+    </main>
+    
     <footer> copyright 2025 wku</footer>
 
     <script type="module">

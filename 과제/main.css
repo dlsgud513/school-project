@@ -8,83 +8,88 @@ body {
     flex-direction: column;
 }
 
-/* 타이머 스타일 */
 #timer-display {
     font-size: 2.5em;
-    font-family: 'Courier New', Courier, monospace; 
+    font-family: 'Courier New', Courier, monospace;
     color: #333;
     margin: 10px;
 }
 
-/* 게임 영역 (보이는 부분) */
 #game-wrapper {
-    width: 250px; /* 50px * 5 칸 */
-    height: 250px; /* 50px * 5 칸 */
-    overflow: hidden; /* 이 부분만 보이게 함 */
+    width: 250px;
+    height: 250px;
+    overflow: hidden;
     border: 2px solid black;
     position: relative;
 }
 
-/* 실제 그리드 (7x7) */
 #grid-container {
     display: grid;
+    /* 👇 여기를 반드시 7로 바꿔주세요! (기존에 5로 되어 있을 겁니다) */
     grid-template-columns: repeat(7, 50px);
     grid-template-rows: repeat(7, 50px);
+    
+    /* 안전장치: 가로세로 크기를 강제로 고정 */
+    width: 350px;
+    height: 350px;
+
     background-color: #fff;
-    /* 배경 그리드 라인 */
-    background-image: 
-        linear-gradient(to right, #eee 1px, transparent 1px),
-        linear-gradient(to bottom, #eee 1px, transparent 1px);
+    /* 격자 무늬 색상 (진하게 #ccc) */
+    background-image:
+        linear-gradient(to right, #ccc 1px, transparent 1px),
+        linear-gradient(to bottom, #ccc 1px, transparent 1px);
     background-size: 50px 50px;
+    
     position: relative;
-    /* 중앙 5x5만 보이도록 1칸(50px)씩 이동 */
-    left: -50px; 
+    left: -50px;
     top: -50px;
 }
 
-/* 플레이어 */
 #player {
     width: 40px;
     height: 40px;
-    background-color: dodgerblue;
+    background-color: black;
     border-radius: 50%;
-    margin: 5px; /* 50px 칸 중앙에 40px 요소 배치 */
-    transition: all 0.1s linear; /* 부드러운 이동 */
+    margin: 5px;
+    transition: all 0.1s linear;
     z-index: 10;
 }
 
-/* 장애물 */
 .obstacle {
     width: 40px;
     height: 40px;
-    background-color: #555;
+    background-color: #fb0000;
     margin: 5px;
-    transition: all 0.05s linear; 
+    transition: all 0.05s linear;
     z-index: 5;
-    border-radius: 50%; 
+    border-radius: 50%;
     box-shadow: 0 0 0 3px #333 inset;
     border: 3px solid #888;
-    animation: spin 1s linear infinite; 
+    animation: spin 1s linear infinite;
 }
 
-/* 장애물 회전 애니메이션 */
 @keyframes spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
 }
 
-/* 장애물 컨테이너 (그리드 위에 겹치게) */
+
 #obstacle-container {
     display: grid;
+    /* 👇 여기도 7로 변경! */
     grid-template-columns: repeat(7, 50px);
     grid-template-rows: repeat(7, 50px);
+    
+    /* 안전장치: 크기 고정 */
+    width: 350px;
+    height: 350px;
+
     position: absolute;
     left: 0;
     top: 0;
-    z-index: 5; 
+    z-index: 5;
 }
 
-/* 다시 시작 버튼 */
 #restart-button {
     display: none;
     font-size: 1.5em;
@@ -100,4 +105,105 @@ body {
 
 #restart-button.show {
     display: block;
+}
+/* 세이브 포인트 알림창 스타일 */
+#notification {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.8); /* 검은 배경 */
+    color: #ffff00; /* 노란 글씨 */
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-weight: bold;
+    font-size: 1.2em;
+    z-index: 100;
+    display: none; /* 평소엔 숨김 */
+    animation: fadeOut 2.5s forwards; /* 스르륵 사라짐 */
+}
+
+@keyframes fadeOut {
+    0% { opacity: 1; }
+    80% { opacity: 1; }
+    100% { opacity: 0; display: none; }
+}
+/* --- 레이저 스타일 추가 --- */
+/* --- 레이저 스타일 (가로/세로 모두 얇았다가 굵어짐) --- */
+.laser {
+    position: absolute;
+    background-color: red;
+    z-index: 4;
+    pointer-events: none;
+    /* 중앙을 기준으로 커지도록 설정 */
+    transform-origin: center;
+}
+
+/* [경고 상태] 깜빡이면서 얇은 선으로 표시 */
+.laser.warning {
+    opacity: 0.5;
+    animation: blink 0.2s infinite alternate;
+}
+
+/* 가로 레이저 경고: 높이(Y)만 얇게 */
+.laser.warning.horizontal {
+    transform: scaleY(0.1); 
+}
+
+/* 세로 레이저 경고: 너비(X)만 얇게 (다시 적용!) */
+.laser.warning.vertical {
+    transform: scaleX(0.1); 
+}
+
+
+/* [발사 상태] 강렬한 빛과 함께 확장 */
+.laser.active {
+    opacity: 1;
+    box-shadow: 0 0 20px red, 0 0 40px orange;
+    /* 애니메이션이 끝난 후 원래 크기(100%) 유지 */
+    transform: scale(1);
+}
+
+/* 가로 레이저 발사: 위아래로 촥 펼쳐짐 */
+.laser.active.horizontal {
+    animation: expandY 0.15s ease-out forwards;
+}
+
+/* 세로 레이저 발사: 좌우로 촥 펼쳐짐 (다시 적용!) */
+.laser.active.vertical {
+    animation: expandX 0.15s ease-out forwards;
+}
+
+
+/* 기본 크기 설정 (꽉 찬 길이 350px) */
+.laser.horizontal {
+    height: 50px;
+    width: 350px;
+    left: 0;
+}
+
+.laser.vertical {
+    width: 50px;
+    height: 350px;
+    top: 0;
+}
+
+/* --- 애니메이션 키프레임 --- */
+
+/* 경고 깜빡임 */
+@keyframes blink {
+    from { opacity: 0.3; }
+    to { opacity: 0.7; }
+}
+
+/* Y축(두께) 확장 애니메이션 - 가로 레이저용 */
+@keyframes expandY {
+    0% { transform: scaleY(0.1); } /* 10% 두께 */
+    100% { transform: scaleY(1); } /* 100% 두께 */
+}
+
+/* X축(두께) 확장 애니메이션 - 세로 레이저용 */
+@keyframes expandX {
+    0% { transform: scaleX(0.1); } /* 10% 두께 */
+    100% { transform: scaleX(1); } /* 100% 두께 */
 }
