@@ -1,0 +1,103 @@
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #f0f0f0;
+    font-family: sans-serif;
+    flex-direction: column;
+}
+
+/* 타이머 스타일 */
+#timer-display {
+    font-size: 2.5em;
+    font-family: 'Courier New', Courier, monospace; 
+    color: #333;
+    margin: 10px;
+}
+
+/* 게임 영역 (보이는 부분) */
+#game-wrapper {
+    width: 250px; /* 50px * 5 칸 */
+    height: 250px; /* 50px * 5 칸 */
+    overflow: hidden; /* 이 부분만 보이게 함 */
+    border: 2px solid black;
+    position: relative;
+}
+
+/* 실제 그리드 (7x7) */
+#grid-container {
+    display: grid;
+    grid-template-columns: repeat(7, 50px);
+    grid-template-rows: repeat(7, 50px);
+    background-color: #fff;
+    /* 배경 그리드 라인 */
+    background-image: 
+        linear-gradient(to right, #eee 1px, transparent 1px),
+        linear-gradient(to bottom, #eee 1px, transparent 1px);
+    background-size: 50px 50px;
+    position: relative;
+    /* 중앙 5x5만 보이도록 1칸(50px)씩 이동 */
+    left: -50px; 
+    top: -50px;
+}
+
+/* 플레이어 */
+#player {
+    width: 40px;
+    height: 40px;
+    background-color: dodgerblue;
+    border-radius: 50%;
+    margin: 5px; /* 50px 칸 중앙에 40px 요소 배치 */
+    transition: all 0.1s linear; /* 부드러운 이동 */
+    z-index: 10;
+}
+
+/* 장애물 */
+.obstacle {
+    width: 40px;
+    height: 40px;
+    background-color: #555;
+    margin: 5px;
+    transition: all 0.05s linear; 
+    z-index: 5;
+    border-radius: 50%; 
+    box-shadow: 0 0 0 3px #333 inset;
+    border: 3px solid #888;
+    animation: spin 1s linear infinite; 
+}
+
+/* 장애물 회전 애니메이션 */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* 장애물 컨테이너 (그리드 위에 겹치게) */
+#obstacle-container {
+    display: grid;
+    grid-template-columns: repeat(7, 50px);
+    grid-template-rows: repeat(7, 50px);
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 5; 
+}
+
+/* 다시 시작 버튼 */
+#restart-button {
+    display: none;
+    font-size: 1.5em;
+    font-weight: bold;
+    padding: 10px 20px;
+    margin-top: 20px;
+    cursor: pointer;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+}
+
+#restart-button.show {
+    display: block;
+}
