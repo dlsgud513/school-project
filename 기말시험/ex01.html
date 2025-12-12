@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        /* 1. 기본 여백 제거 (브라우저 기본 스타일 초기화) */
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        /* 2. 부모 컨테이너 설정 */
+        .container {
+            /* 핵심: Flexbox 활성화 */
+            display: flex;
+
+            /* 가로축(Main Axis) 중앙 정렬 */
+            justify-content: center;
+
+            /* 세로축(Cross Axis) 중앙 정렬 */
+            align-items: center;
+
+            /* 높이 설정: 화면 전체 높이(100vh)를 차지해야 세로 중앙이 됨 */
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <p class="container">20222253박인형</p>
+</body>
+</html>
