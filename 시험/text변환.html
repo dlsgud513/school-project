@@ -147,12 +147,10 @@ def replace_epub_cover_safely(epub_path, cover_path, root):
         print(f"❌ 오류 발생: {e}")
         messagebox.showerror("오류", f"표지를 변경하는 중 문제가 발생했습니다:\n{e}", parent=root)
 
-
 # ==========================================
-# 4. EPUB 내 Base64 난수열 삭제 기능 (제공해주신 코드 통합)
+# 4. EPUB 내 Base64 난수열 삭제 기능
 # ==========================================
 def process_epub_base64(src_path, dst_path=None, dry_run=True):
-    # > 와 < 사이 순수 텍스트 영역의 30자 이상 Base64 난수열 탐지
     pattern = re.compile(r">(\s*[A-Za-z0-9+/=]{30,}\s*)<")
     findings = []
     removed_count = 0
@@ -183,9 +181,10 @@ def process_epub_base64(src_path, dst_path=None, dry_run=True):
                     content = text.encode("utf-8")
                 except UnicodeDecodeError:
                     pass
-
+            
             compress_type = zipfile.ZIP_STORED if item.filename == "mimetype" else zipfile.ZIP_DEFLATED
             zout.writestr(item, content, compress_type=compress_type)
+            
     return removed_count
 
 def run_base64_cleaner_ui(input_file, root):
@@ -226,7 +225,6 @@ def run_base64_cleaner_ui(input_file, root):
     else:
         print("\n작업이 취소되었습니다.")
 
-
 # ==========================================
 # 메인 프로그램 라우터 (선택 메뉴 UI)
 # ==========================================
@@ -249,7 +247,7 @@ def main_app():
     file_name, file_ext = os.path.splitext(file_path)
     ext = file_ext.lower()
 
-    # [A] TXT 파일 선택 시 (기능 1)
+    # [A] TXT 파일 선택 시
     if ext == '.txt':
         add_cover = messagebox.askyesno("표지 추가", "EPUB 파일로 변환할 때 표지 이미지를 추가하시겠습니까?", parent=root)
         cover_path = None
@@ -265,15 +263,14 @@ def main_app():
         text_to_epub(file_path, output_path, title=title, cover_path=cover_path)
         messagebox.showinfo("완료", "TXT -> EPUB 변환이 완료되었습니다!", parent=root)
 
-    # [B] EPUB 파일 선택 시 (기능 2, 3, 4 분기)
+    # [B] EPUB 파일 선택 시
     elif ext == '.epub':
-        # 세 가지 선택지를 번호로 입력받는 창 띄우기
         choice = simpledialog.askinteger(
             "EPUB 작업 선택",
             "원하시는 작업의 '번호'를 입력하고 확인을 누르세요:\n\n"
             "1 : 텍스트(TXT)로 추출하기\n"
             "2 : 표지 이미지 변경하기\n"
-            "3 : 텍스트 내 Base64 난수열 삭제하기 (4번째 기능)",
+            "3 : 텍스트 내 Base64 난수열 삭제하기",
             parent=root,
             minvalue=1, maxvalue=3
         )
@@ -295,7 +292,6 @@ def main_app():
                 print("⚠️ 이미지 선택이 취소되었습니다.")
                 
         elif choice == 3:
-            # 방금 추가한 4번째 기능 실행!
             run_base64_cleaner_ui(file_path, root)
             
         else:
