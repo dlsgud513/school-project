@@ -1,304 +1,236 @@
-import os
-import re
-import uuid
-import zipfile
-import shutil
-import tempfile
-import ebooklib
-from ebooklib import epub
-from bs4 import BeautifulSoup
-import tkinter as tk
-from tkinter import filedialog, messagebox, simpledialog
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>EPUB / TXT 변환기</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; line-height: 1.6; }
+    .card { border: 1px solid #ddd; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+    h2 { margin-top: 0; }
+    input, button { margin-top: 10px; display: block; }
+    button { padding: 8px 16px; cursor: pointer; }
+  </style>
+</head>
+<body>
 
-# ==========================================
-# 1. EPUB -> TXT 변환
-# ==========================================
-def epub_to_text(epub_path, txt_path):
-    book = epub.read_epub(epub_path)
-    text_content = []
-    
-    for item in book.get_items():
-        if item.get_type() == ebooklib.ITEM_DOCUMENT:
-            soup = BeautifulSoup(item.get_content(), 'html.parser')
-            text_content.append(soup.get_text(separator='\n\n', strip=True))
-            
-    with open(txt_path, 'w', encoding='utf-8') as f:
-        f.write('\n\n'.join(text_content))
+  <h1>EPUB / TXT 변환 툴</h1>
+
+  <!-- 1. TXT -> EPUB 변환 -->
+  <div class="card">
+    <h2>1. TXT를 EPUB으로 변환</h2>
+    <label>TXT 파일 선택: <input type="file" id="txtInput" accept=".txt"></label>
+    <label>표지 이미지 (선택): <input type="file" id="txtCoverInput" accept="image/*"></label>
+    <button onclick="convertTxtToEpub()">EPUB 변환 및 다운로드</button>
+  </div>
+
+  <!-- 2. EPUB -> TXT 변환 -->
+  <div class="card">
+    <h2>2. EPUB을 TXT로 변환</h2>
+    <label>EPUB 파일 선택: <input type="file" id="epubInput" accept=".epub"></label>
+    <button onclick="convertEpubToTxt()">TXT 추출 및 다운로드</button>
+  </div>
+
+  <!-- 3. EPUB 표지 교체 -->
+  <div class="card">
+    <h2>3. 기존 EPUB 표지 교체</h2>
+    <label>EPUB 파일 선택: <input type="file" id="targetEpubInput" accept=".epub"></label>
+    <label>새 표지 이미지 선택: <input type="file" id="targetCoverInput" accept="image/*"></label>
+    <button onclick="replaceEpubCover()">표지 변경 후 다운로드</button>
+  </div>
+
+  <!-- 4. EPUB 내 Base64 삭제 -->
+  <div class="card">
+    <h2>4. EPUB 내 Base64 난수열 삭제</h2>
+    <label>EPUB 파일 선택: <input type="file" id="cleanEpubInput" accept=".epub"></label>
+    <button onclick="cleanBase64FromEpub()">Base64 삭제 후 다운로드</button>
+  </div>
+
+  <script>
+    // helper: 파일 다운로드 트리거
+    function saveBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // 1. TXT -> EPUB
+    async function convertTxtToEpub() {
+      const txtFile = document.getElementById('txtInput').files[0];
+      const coverFile = document.getElementById('txtCoverInput').files[0];
+      if (!txtFile) return alert('TXT 파일을 선택해주세요.');
+
+      const text = await txtFile.text();
+      const lines = text.split(/\r?\n/);
+      const title = txtFile.name.replace(/\.[^/.]+$/, "");
+      const zip = new JSZip();
+
+      // mimetype
+      zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
+
+      // container.xml (태그 렌더링 오류 방지를 위해 \x3C, \x3E 로 우회)
+      zip.folder("META-INF").file("container.xml", 
+        `\x3C?xml version="1.0"?\x3E\n\x3Ccontainer version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"\x3E\n  \x3Crootfiles\x3E\n    \x3Crootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/\x3E\n  \x3C/rootfiles\x3E\n\x3C/container\x3E`);
+
+      const oebps = zip.folder("OEBPS");
+      const LINES_PER_PAGE = 1000;
+      let manifestItems = [];
+      let spineItems = [];
+      let navPoints = [];
+      let chapterIdx = 1;
+
+      for (let i = 0; i < lines.length; i += LINES_PER_PAGE) {
+        const chunk = lines.slice(i, i + LINES_PER_PAGE);
+        const pTags = chunk.filter(l => l.trim().length > 0).map(l => `\x3Cp\x3E${l.trim()}\x3C/p\x3E`).join("\n");
+        const docContent = `\x3C?xml version="1.0" encoding="utf-8"?\x3E\n\x3C!DOCTYPE html\x3E\n\x3Chtml xmlns="http://www.w3.org/1999/xhtml"\x3E\n\x3Chead\x3E\x3Ctitle\x3E${title} - Part ${chapterIdx}\x3C/title\x3E\x3C/head\x3E\n\x3Cbody\x3E${chapterIdx === 1 ? `\x3Ch2\x3E${title}\x3C/h2\x3E` : ''}${pTags}\x3C/body\x3E\n\x3C/html\x3E`;
         
-    print(f"✅ 변환 완료: {os.path.basename(txt_path)}")
-
-# ==========================================
-# 2. TXT -> EPUB 변환 (리디북스 최적화)
-# ==========================================
-def text_to_epub(txt_path, epub_path, title="자동 생성된 EPUB", author="작자 미상", cover_path=None):
-    book = epub.EpubBook()
-    book.set_identifier(str(uuid.uuid4()))
-    book.set_title(title)
-    book.set_language('ko')
-    book.add_author(author)
-    
-    if cover_path and os.path.exists(cover_path):
-        with open(cover_path, 'rb') as img_file:
-            cover_content = img_file.read()
-        cover_ext = os.path.splitext(cover_path)[1].lower()
-        book.set_cover(f"cover{cover_ext}", cover_content, create_page=False)
-    
-    with open(txt_path, 'r', encoding='utf-8') as f:
-        text_lines = f.readlines()
+        const fileName = `chapter_${chapterIdx}.xhtml`;
+        oebps.file(fileName, docContent);
         
-    LINES_PER_CHAPTER = 1000
-    chapters = []
-    
-    for i in range(0, len(text_lines), LINES_PER_CHAPTER):
-        chunk = text_lines[i:i + LINES_PER_CHAPTER]
-        chapter_num = (i // LINES_PER_CHAPTER) + 1
-        
-        html_body = ""
-        if chapter_num == 1:
-            html_body += f"<h2>{title}</h2>\n"
-            
-        html_body += "".join(f"<p>{line.strip()}</p>\n" for line in chunk if line.strip())
-        
-        chapter = epub.EpubHtml(title=f'파트 {chapter_num}', file_name=f'chapter_{chapter_num}.xhtml', lang='ko')
-        chapter.content = html_body
-        book.add_item(chapter)
-        chapters.append(chapter)
-    
-    book.toc = tuple(chapters)
-    book.add_item(epub.EpubNcx())
-    book.add_item(epub.EpubNav())
-    book.spine = ['nav'] + chapters
-    
-    epub.write_epub(epub_path, book)
-    print(f"✅ 변환 완료: {os.path.basename(epub_path)}")
+        manifestItems.push(`\x3Citem id="chap_${chapterIdx}" href="${fileName}" media-type="application/xhtml+xml"/\x3E`);
+        spineItems.push(`\x3Citemref idref="chap_${chapterIdx}"/\x3E`);
+        navPoints.push(`\x3CnavPoint id="np_${chapterIdx}" playOrder="${chapterIdx}"\x3E\x3CnavLabel\x3E\x3Ctext\x3E파트 ${chapterIdx}\x3C/text\x3E\x3C/navLabel\x3E\x3Ccontent src="${fileName}"/\x3E\x3C/navPoint\x3E`);
+        chapterIdx++;
+      }
 
-# ==========================================
-# 3. EPUB 표지 교체
-# ==========================================
-def replace_epub_cover_safely(epub_path, cover_path, root):
-    try:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            with zipfile.ZipFile(epub_path, 'r') as zip_ref:
-                zip_ref.extractall(temp_dir)
+      // 표지 이미지 처리
+      let coverManifest = "";
+      let coverMeta = "";
+      if (coverFile) {
+        const coverBuffer = await coverFile.arrayBuffer();
+        const ext = coverFile.name.split('.').pop().toLowerCase();
+        const coverFileName = `cover.${ext}`;
+        const mimeType = coverFile.type || "image/jpeg";
+        oebps.file(coverFileName, coverBuffer);
+        coverManifest = `\x3Citem id="cover-img" href="${coverFileName}" media-type="${mimeType}" properties="cover-image"/\x3E`;
+        coverMeta = `\x3Cmeta name="cover" content="cover-img"/\x3E`;
+      }
 
-            container_path = os.path.join(temp_dir, 'META-INF', 'container.xml')
-            with open(container_path, 'r', encoding='utf-8') as f:
-                container_soup = BeautifulSoup(f.read(), 'xml')
-            
-            rootfile = container_soup.find('rootfile')
-            opf_rel_path = rootfile['full-path']
-            opf_full_path = os.path.join(temp_dir, opf_rel_path)
-            opf_dir = os.path.dirname(opf_full_path)
+      // content.opf
+      const opf = `\x3C?xml version="1.0" encoding="utf-8"?\x3E\n\x3Cpackage xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookID" version="3.0"\x3E\n  \x3Cmetadata xmlns:dc="http://purl.org/dc/elements/1.1/"\x3E\n    \x3Cdc:title\x3E${title}\x3C/dc:title\x3E\n    \x3Cdc:language\x3Eko\x3C/dc:language\x3E\n    \x3Cdc:identifier id="BookID"\x3Eurn:uuid:${crypto.randomUUID()}\x3C/dc:identifier\x3E\n    ${coverMeta}\n  \x3C/metadata\x3E\n  \x3Cmanifest\x3E\n    \x3Citem id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/\x3E\n    ${coverManifest}\n    ${manifestItems.join("\n    ")}\n  \x3C/manifest\x3E\n  \x3Cspine toc="ncx"\x3E\n    ${spineItems.join("\n    ")}\n  \x3C/spine\x3E\n\x3C/package\x3E`;
+      oebps.file("content.opf", opf);
 
-            cover_ext = os.path.splitext(cover_path)[1].lower()
-            cover_filename = f"new_cover_image{cover_ext}"
-            dest_cover_path = os.path.join(opf_dir, cover_filename)
-            shutil.copy(cover_path, dest_cover_path)
+      // toc.ncx
+      const ncx = `\x3C?xml version="1.0" encoding="utf-8"?\x3E\n\x3Cncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1"\x3E\n  \x3Chead\x3E\x3Cmeta name="dtb:uid" content="urn:uuid:12345"/\x3E\x3C/head\x3E\n  \x3CdocTitle\x3E\x3Ctext\x3E${title}\x3C/text\x3E\x3C/docTitle\x3E\n  \x3CnavMap\x3E\n${navPoints.join("\n")}\n  \x3C/navMap\x3E\n\x3C/ncx\x3E`;
+      oebps.file("toc.ncx", ncx);
 
-            mime_types = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp'}
-            mime_type = mime_types.get(cover_ext, 'image/jpeg')
+      const resultBlob = await zip.generateAsync({ type: "blob", mimeType: "application/epub+zip" });
+      saveBlob(resultBlob, `${title}.epub`);
+    }
 
-            with open(opf_full_path, 'r', encoding='utf-8') as f:
-                opf_soup = BeautifulSoup(f.read(), 'xml')
-            
-            manifest = opf_soup.find('manifest')
-            cover_id = "new-cover-img-id"
-            
-            for existing in manifest.find_all('item', {'id': cover_id}):
-                existing.decompose()
-                
-            new_item = opf_soup.new_tag('item', id=cover_id, href=cover_filename)
-            new_item['media-type'] = mime_type
-            new_item['properties'] = "cover-image"
-            manifest.append(new_item)
+    // 2. EPUB -> TXT
+    async function convertEpubToTxt() {
+      const epubFile = document.getElementById('epubInput').files[0];
+      if (!epubFile) return alert('EPUB 파일을 선택해주세요.');
 
-            metadata = opf_soup.find('metadata')
-            for meta in metadata.find_all('meta', {'name': 'cover'}):
-                meta.decompose()
-            
-            new_meta = opf_soup.new_tag('meta')
-            new_meta['name'] = "cover"
-            new_meta['content'] = cover_id
-            metadata.append(new_meta)
+      const zip = await JSZip.loadAsync(epubFile);
+      let textResults = [];
 
-            with open(opf_full_path, 'w', encoding='utf-8') as f:
-                f.write(str(opf_soup))
+      for (const [relativePath, file] of Object.entries(zip.files)) {
+        if (/\.(xhtml|html|htm)$/i.test(relativePath)) {
+          const content = await file.async("text");
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(content, "text/html");
+          textResults.push(doc.body.innerText.trim());
+        }
+      }
 
-            file_name, _ = os.path.splitext(epub_path)
-            output_path = f"{file_name}_표지추가.epub"
-            
-            with zipfile.ZipFile(output_path, 'w') as zip_out:
-                mimetype_path = os.path.join(temp_dir, 'mimetype')
-                if os.path.exists(mimetype_path):
-                    zip_out.write(mimetype_path, 'mimetype', compress_type=zipfile.ZIP_STORED)
-                
-                for root_dir, _, files in os.walk(temp_dir):
-                    for file in files:
-                        if file == 'mimetype' and root_dir == temp_dir:
-                            continue
-                        file_path = os.path.join(root_dir, file)
-                        arcname = os.path.relpath(file_path, temp_dir)
-                        zip_out.write(file_path, arcname, compress_type=zipfile.ZIP_DEFLATED)
+      const fullText = textResults.join("\n\n");
+      const blob = new Blob([fullText], { type: "text/plain;charset=utf-8" });
+      saveBlob(blob, `${epubFile.name.replace(/\.[^/.]+$/, "")}.txt`);
+    }
 
-        print(f"✅ 표지 변경 완료: {os.path.basename(output_path)}")
-        messagebox.showinfo("완료", "EPUB 파일에 표지 변경이 완료되었습니다!", parent=root)
-        
-    except Exception as e:
-        print(f"❌ 오류 발생: {e}")
-        messagebox.showerror("오류", f"표지를 변경하는 중 문제가 발생했습니다:\n{e}", parent=root)
+    // 3. EPUB 표지 교체
+    async function replaceEpubCover() {
+      const epubFile = document.getElementById('targetEpubInput').files[0];
+      const coverFile = document.getElementById('targetCoverInput').files[0];
+      if (!epubFile || !coverFile) return alert('EPUB 파일과 표지 이미지를 모두 선택해주세요.');
 
-# ==========================================
-# 4. EPUB 내 Base64 난수열 삭제 기능
-# ==========================================
-def process_epub_base64(src_path, dst_path=None, dry_run=True):
-    pattern = re.compile(r">(\s*[A-Za-z0-9+/=]{30,}\s*)<")
-    findings = []
-    removed_count = 0
+      const zip = await JSZip.loadAsync(epubFile);
+      const containerXml = await zip.file("META-INF/container.xml").async("text");
+      const parser = new DOMParser();
+      const containerDoc = parser.parseFromString(containerXml, "application/xml");
+      const rootfile = containerDoc.querySelector("rootfile");
+      const opfPath = rootfile.getAttribute("full-path");
 
-    if dry_run:
-        with zipfile.ZipFile(src_path, "r") as zin:
-            for item in zin.infolist():
-                if item.filename.lower().endswith((".xhtml", ".html", ".htm", ".xml", ".opf")):
-                    try:
-                        text = zin.read(item.filename).decode("utf-8")
-                        for match in pattern.finditer(text):
-                            target_str = match.group(1).strip()
-                            findings.append({"file": item.filename, "target": target_str})
-                    except UnicodeDecodeError:
-                        pass
-        return findings
+      const opfDir = opfPath.includes("/") ? opfPath.substring(0, opfPath.lastIndexOf("/") + 1) : "";
+      const opfXml = await zip.file(opfPath).async("text");
+      const opfDoc = parser.parseFromString(opfXml, "application/xml");
 
-    with zipfile.ZipFile(src_path, "r") as zin, zipfile.ZipFile(dst_path, "w") as zout:
-        for item in zin.infolist():
-            content = zin.read(item.filename)
-            if item.filename.lower().endswith((".xhtml", ".html", ".htm", ".xml", ".opf")):
-                try:
-                    text = content.decode("utf-8")
-                    matches = pattern.findall(text)
-                    if matches:
-                        removed_count += len(matches)
-                    text = pattern.sub("><", text)
-                    content = text.encode("utf-8")
-                except UnicodeDecodeError:
-                    pass
-            
-            compress_type = zipfile.ZIP_STORED if item.filename == "mimetype" else zipfile.ZIP_DEFLATED
-            zout.writestr(item, content, compress_type=compress_type)
-            
-    return removed_count
+      const ext = coverFile.name.split('.').pop().toLowerCase();
+      const coverImgName = `new_cover.${ext}`;
+      const fullCoverPath = opfDir + coverImgName;
 
-def run_base64_cleaner_ui(input_file, root):
-    base_dir = os.path.dirname(input_file)
-    file_name, ext = os.path.splitext(os.path.basename(input_file))
-    output_file = os.path.join(base_dir, f"{file_name}_cleaned{ext}")
-    log_file = os.path.join(base_dir, "removed_log.txt")
+      const coverBuffer = await coverFile.arrayBuffer();
+      zip.file(fullCoverPath, coverBuffer);
 
-    print(f"\n[1단계] '{file_name}{ext}' 파일 검증 및 사전 스캔 시작...")
-    findings = process_epub_base64(input_file, dry_run=True)
+      const manifest = opfDoc.querySelector("manifest");
+      const metadata = opfDoc.querySelector("metadata");
+      const coverId = "custom-cover-id";
 
-    if findings is None:
-        return
+      let item = opfDoc.querySelector(`item#${coverId}`);
+      if (!item) {
+        item = opfDoc.createElement("item");
+        item.setAttribute("id", coverId);
+        manifest.appendChild(item);
+      }
+      item.setAttribute("href", coverImgName);
+      item.setAttribute("media-type", coverFile.type || "image/jpeg");
+      item.setAttribute("properties", "cover-image");
 
-    total = len(findings)
-    print(f"-> 총 {total}건의 난수열 패턴이 탐지되었습니다.\n")
+      let meta = opfDoc.querySelector('meta[name="cover"]');
+      if (!meta) {
+        meta = opfDoc.createElement("meta");
+        meta.setAttribute("name", "cover");
+        metadata.appendChild(meta);
+      }
+      meta.setAttribute("content", coverId);
 
-    if total == 0:
-        messagebox.showinfo("검사 결과", "삭제할 Base64 난수열 대상이 없습니다.\n(정상적인 파일입니다)", parent=root)
-        return
+      const serializer = new XMLSerializer();
+      zip.file(opfPath, serializer.serializeToString(opfDoc));
 
-    # 로그 파일 기록
-    with open(log_file, "w", encoding="utf-8") as f:
-        f.write(f"=== EPUB 정제 검증 로그 (총 {total}건) ===\n\n")
-        for idx, item in enumerate(findings, 1):
-            log_entry = f"[{idx}] 파일: {item['file']}\n - 삭제 대상: {item['target']}\n\n"
-            f.write(log_entry)
+      const resultBlob = await zip.generateAsync({ type: "blob", mimeType: "application/epub+zip" });
+      saveBlob(resultBlob, `${epubFile.name.replace(/\.[^/.]+$/, "")}_표지추가.epub`);
+    }
 
-    # 팝업창으로 사용자에게 변환 여부 묻기
-    msg = f"총 {total}건의 난수열 패턴이 탐지되었습니다.\n상세 내역은 원본 폴더의 'removed_log.txt'에 저장되었습니다.\n\n실제 변환을 진행하시겠습니까?"
-    user_input = messagebox.askyesno("변환 확인", msg, parent=root)
+    // 4. EPUB 내 Base64 난수열 삭제 기능 추가
+    async function cleanBase64FromEpub() {
+      const epubFile = document.getElementById('cleanEpubInput').files[0];
+      if (!epubFile) return alert('EPUB 파일을 선택해주세요.');
 
-    if user_input:
-        print("\n[2단계] 변환 진행 중...")
-        count = process_epub_base64(input_file, output_file, dry_run=False)
-        print(f"-> 완료! 총 {count}개의 난수열이 제거되었습니다.")
-        messagebox.showinfo("정제 완료", f"총 {count}개의 난수열이 제거되었습니다!\n\n생성된 파일:\n{output_file}", parent=root)
-    else:
-        print("\n작업이 취소되었습니다.")
+      const zip = await JSZip.loadAsync(epubFile);
+      let totalRemoved = 0;
+      
+      // 태그 렌더링 오류 방지를 위해 정규식을 문자열 기반으로 생성
+      const regex = new RegExp("\\x3E\\s*[A-Za-z0-9+/=]{30,}\\s*\\x3C", "g");
 
-# ==========================================
-# 메인 프로그램 라우터 (선택 메뉴 UI)
-# ==========================================
-def main_app():
-    root = tk.Tk()
-    root.withdraw()
-    root.attributes('-topmost', True) 
+      for (const [relativePath, file] of Object.entries(zip.files)) {
+        if (!file.dir && /\.(xhtml|html|htm|xml|opf)$/i.test(relativePath)) {
+          let content = await file.async("text");
+          
+          const matches = content.match(regex);
+          if (matches) {
+            totalRemoved += matches.length;
+            // 일치하는 부분을 "><" 로 덮어쓰기
+            content = content.replace(regex, '\x3E\x3C');
+            zip.file(relativePath, content);
+          }
+        }
+      }
 
-    print("📖 작업할 파일을 선택하세요...")
-    
-    file_path = filedialog.askopenfilename(
-        title="작업할 텍스트 또는 EPUB 파일을 선택하세요",
-        filetypes=[("Text 및 EPUB 파일", "*.txt *.epub"), ("Text 파일", "*.txt"), ("EPUB 파일", "*.epub")]
-    )
+      if (totalRemoved === 0) {
+        alert("제거할 대상(Base64 난수열)이 없습니다. 정상적인 파일입니다.");
+        return;
+      }
 
-    if not file_path:
-        print("❌ 파일 선택이 취소되었습니다.")
-        return
-
-    file_name, file_ext = os.path.splitext(file_path)
-    ext = file_ext.lower()
-
-    # [A] TXT 파일 선택 시
-    if ext == '.txt':
-        add_cover = messagebox.askyesno("표지 추가", "EPUB 파일로 변환할 때 표지 이미지를 추가하시겠습니까?", parent=root)
-        cover_path = None
-        if add_cover:
-            cover_path = filedialog.askopenfilename(
-                title="표지 이미지(JPG, PNG, WebP) 선택",
-                filetypes=[("이미지 파일", "*.jpg *.jpeg *.png *.webp"), ("모든 파일", "*.*")]
-            )
-            
-        output_path = f"{file_name}.epub"
-        title = os.path.basename(file_name) 
-        print("⏳ TXT를 EPUB으로 변환 중입니다...")
-        text_to_epub(file_path, output_path, title=title, cover_path=cover_path)
-        messagebox.showinfo("완료", "TXT -> EPUB 변환이 완료되었습니다!", parent=root)
-
-    # [B] EPUB 파일 선택 시
-    elif ext == '.epub':
-        choice = simpledialog.askinteger(
-            "EPUB 작업 선택",
-            "원하시는 작업의 '번호'를 입력하고 확인을 누르세요:\n\n"
-            "1 : 텍스트(TXT)로 추출하기\n"
-            "2 : 표지 이미지 변경하기\n"
-            "3 : 텍스트 내 Base64 난수열 삭제하기",
-            parent=root,
-            minvalue=1, maxvalue=3
-        )
-        
-        if choice == 1:
-            output_path = f"{file_name}.txt"
-            print("⏳ EPUB을 TXT로 변환 중입니다...")
-            epub_to_text(file_path, output_path)
-            messagebox.showinfo("완료", "EPUB -> TXT 변환이 완료되었습니다!", parent=root)
-            
-        elif choice == 2:
-            cover_path = filedialog.askopenfilename(
-                title="새로운 표지 이미지 선택",
-                filetypes=[("이미지 파일", "*.jpg *.jpeg *.png *.webp"), ("모든 파일", "*.*")]
-            )
-            if cover_path:
-                replace_epub_cover_safely(file_path, cover_path, root)
-            else:
-                print("⚠️ 이미지 선택이 취소되었습니다.")
-                
-        elif choice == 3:
-            run_base64_cleaner_ui(file_path, root)
-            
-        else:
-            print("작업이 취소되었습니다.")
-            
-    else:
-        print(f"❌ 지원하지 않는 파일 형식입니다: {ext}")
-
-if __name__ == "__main__":
-    main_app()
+      const resultBlob = await zip.generateAsync({ type: "blob", mimeType: "application/epub+zip" });
+      saveBlob(resultBlob, `${epubFile.name.replace(/\.[^/.]+$/, "")}_cleaned.epub`);
+      
+      alert(`완료! 총 ${totalRemoved}건의 난수열이 제거되었습니다.`);
+    }
+  </script>
+</body>
+</html>
