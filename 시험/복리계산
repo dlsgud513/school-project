@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>복리 매매 목표 달성 계산기</title>
+    <style>
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            background-color: #1e1e1e;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            max-width: 500px;
+            width: 100%;
+        }
+        h2 {
+            text-align: center;
+            color: #ffffff;
+            margin-bottom: 24px;
+        }
+        .input-group {
+            margin-bottom: 16px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #b3b3b3;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            background-color: #2c2c2c;
+            color: #ffffff;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        input:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .summary {
+            margin-top: 24px;
+            padding: 16px;
+            background-color: #2c2c2c;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            color: #4CAF50;
+            display: none;
+        }
+        .table-container {
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #333;
+            border-radius: 6px;
+            display: none;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px;
+            text-align: right;
+            border-bottom: 1px solid #333;
+        }
+        th {
+            background-color: #252525;
+            color: #b3b3b3;
+            position: sticky;
+            top: 0;
+            text-align: center;
+        }
+        td:first-child {
+            text-align: center;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>복리 매매 목표 계산기</h2>
+    
+    <div class="input-group">
+        <label for="initialAmount">초기 소지금 (예: 10 달러)</label>
+        <input type="number" id="initialAmount" placeholder="숫자만 입력" step="any">
+    </div>
+    
+    <div class="input-group">
+        <label for="profitRate">1회 매매 목표 익절률 (%) (예: 1)</label>
+        <input type="number" id="profitRate" placeholder="퍼센트 제외하고 숫자만 입력" step="any">
+    </div>
+    
+    <div class="input-group">
+        <label for="targetAmount">최종 목표 금액 (예: 100 달러)</label>
+        <input type="number" id="targetAmount" placeholder="숫자만 입력" step="any">
+    </div>
+    
+    <button onclick="calculateCompound()">계산하기</button>
+
+    <div id="summaryCard" class="summary"></div>
+
+    <div id="tableContainer" class="table-container">
+        <table id="resultTable">
+            <thead>
+                <tr>
+                    <th>매매 횟수</th>
+                    <th>도달 금액</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- 결과가 여기에 추가됩니다 -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function calculateCompound() {
+        const initial = parseFloat(document.getElementById('initialAmount').value);
+        const rate = parseFloat(document.getElementById('profitRate').value);
+        const target = parseFloat(document.getElementById('targetAmount').value);
+
+        // 입력값 검증
+        if (isNaN(initial) || isNaN(rate) || isNaN(target)) {
+            alert("모든 칸에 숫자를 올바르게 입력해주세요.");
+            return;
+        }
+        if (initial <= 0 || rate <= 0) {
+            alert("초기 소지금과 익절률은 0보다 커야 합니다.");
+            return;
+        }
+        if (target <= initial) {
+            alert("목표 금액은 초기 소지금보다 커야 합니다.");
+            return;
+        }
+
+        let currentAmount = initial;
+        let count = 0;
+        
+        const tbody = document.querySelector('#resultTable tbody');
+        tbody.innerHTML = ''; // 기존 결과 초기화
+
+        // 복리 계산 루프 (브라우저 멈춤 방지를 위해 최대 10,000회 제한)
+        while (currentAmount < target) {
+            count++;
+            currentAmount = currentAmount * (1 + (rate / 100));
+            
+            const tr = document.createElement('tr');
+            const tdCount = document.createElement('td');
+            const tdAmount = document.createElement('td');
+            
+            tdCount.textContent = count + '회';
+            // 소수점 둘째 자리까지 표시하고 천 단위 콤마 적용
+            tdAmount.textContent = currentAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            
+            tr.appendChild(tdCount);
+            tr.appendChild(tdAmount);
+            tbody.appendChild(tr);
+
+            if (count >= 10000) {
+                alert("매매 횟수가 10,000회를 초과하여 계산을 중단합니다. (익절률이 너무 낮거나 목표 금액이 너무 큽니다)");
+                break;
+            }
+        }
+
+        // 결과 요약 표시
+        const summary = document.getElementById('summaryCard');
+        summary.innerHTML = `목표 달성까지 <span>총 ${count}회</span>의 연속 익절이 필요합니다.`;
+        summary.style.display = 'block';
+        
+        // 테이블 표시
+        document.getElementById('tableContainer').style.display = 'block';
+    }
+</script>
+
+</body>
+</html>
